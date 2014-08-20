@@ -4,7 +4,7 @@ try:
     import rfc822
 except Exception as e:
     import email.utils as rfc822
-from smtpapi import SMTPAPIHeader
+from .smtpapi import SMTPAPIHeader
 
 
 class Mail(SMTPAPIHeader):
