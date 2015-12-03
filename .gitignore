@@ -9,3 +9,7 @@ sdist
 *.egg-info
 *.pyc
 venv/
+.idea
+.env
+.python-version
+.tox/

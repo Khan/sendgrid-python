@@ -1,13 +1,16 @@
 import sys
+import json
 from socket import timeout
 from .version import __version__
 try:
     import urllib.request as urllib_request
     from urllib.parse import urlencode
     from urllib.error import HTTPError
+    from urllib.error import URLError
 except ImportError:  # Python 2
     import urllib2 as urllib_request
     from urllib2 import HTTPError
+    from urllib2 import URLError
     from urllib import urlencode
 
 from .exceptions import SendGridClientError, SendGridServerError
@@ -17,7 +20,7 @@ class SendGridClient(object):
 
     """SendGrid API."""
 
-    def __init__(self, username, password, **opts):
+    def __init__(self, username_or_apikey, password=None, **opts):
         """
         Construct SendGrid API object.
 
@@ -31,8 +34,17 @@ class SendGridClient(object):
                 1.0.0, the default will be changed to True, so you are
                 recommended to pass True for forwards compatability.
         """
-        self.username = username
-        self.password = password
+
+        # Check if username + password or api key
+        if password is None:
+            # API Key
+            self.username = None
+            self.password = username_or_apikey
+        else:
+            # Username + password
+            self.username = username_or_apikey
+            self.password = password
+
         self.useragent = 'sendgrid/' + __version__ + ';python'
         self.host = opts.get('host', 'https://api.sendgrid.com')
         self.port = str(opts.get('port', '443'))
@@ -52,9 +64,7 @@ class SendGridClient(object):
                     setattr(message, k, v.encode('utf-8'))
 
         values = {
-            'api_user': self.username,
-            'api_key': self.password,
-            'to[]': message.to,
+            'to[]': message.to if message.to else [message.from_email],
             'toname[]': message.to_name,
             'cc[]': message.cc,
             'bcc[]': message.bcc,
@@ -64,16 +74,25 @@ class SendGridClient(object):
             'text': message.text,
             'html': message.html,
             'replyto': message.reply_to,
-            'headers': message.headers,
+            'headers': json.dumps(message.headers) if message.headers else '',
             'date': message.date,
             'x-smtpapi': message.json_string()
         }
+
+        if self.username != None:
+            # Using username + password
+            values['api_user'] = self.username
+            values['api_key'] = self.password
+
         for k in list(values.keys()):
             if not values[k]:
                 del values[k]
         for filename in message.files:
             if message.files[filename]:
                 values['files[' + filename + ']'] = message.files[filename]
+        for content in message.content:
+            if message.content[content]:
+                values['content[' + content + ']'] = message.content[content]
         return values
 
     def _make_request(self, message):
@@ -85,6 +104,11 @@ class SendGridClient(object):
         req = urllib_request.Request(self.mail_url, data)
         req.add_header('User-Agent', self.useragent)
         req.add_header('Accept', '*/*')
+
+        if self.username is None:
+            # Using API key
+            req.add_header('Authorization', 'Bearer ' + self.password)
+
         response = urllib_request.urlopen(req, timeout=10)
         body = response.read()
         return response.getcode(), body
@@ -100,6 +124,8 @@ class SendGridClient(object):
             return self._make_request(message)
         except HTTPError as e:
             return e.code, e.read()
+        except URLError as e:
+            return 408, e.reason
         except timeout as e:
             return 408, e
 
@@ -107,11 +133,13 @@ class SendGridClient(object):
         try:
             return self._make_request(message)
         except HTTPError as e:
-            if e.code in range(400, 500):
+            if 400 <= e.code < 500:
                 raise SendGridClientError(e.code, e.read())
-            elif e.code in range(500, 600):
+            elif 500 <= e.code < 600:
                 raise SendGridServerError(e.code, e.read())
             else:
                 assert False
+        except URLError as e:
+            raise SendGridClientError(408, 'Request timeout')
         except timeout as e:
             raise SendGridClientError(408, 'Request timeout')
