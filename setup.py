@@ -7,10 +7,10 @@ with open('sendgrid/version.py') as f:
 
 
 def getRequires():
-    deps = ['smtpapi==0.1.2']
-    if sys.version_info < (3, 0):
+    deps = ['smtpapi==0.2.0']
+    if sys.version_info < (2, 7):
         deps.append('unittest2')
-    else:
+    elif (3, 0) <= sys.version_info < (3, 2):
         deps.append('unittest2py3k')
     return deps
 
@@ -25,4 +25,12 @@ setup(
     description='SendGrid library for Python',
     long_description=open('./README.rst').read(),
     install_requires=getRequires(),
+    classifiers=[
+        'Programming Language :: Python :: 2.6',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.2',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5'
+    ]
 )
