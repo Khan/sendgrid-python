@@ -30,6 +30,8 @@ class Mail(object):
             headers: Set headers
             files: Attachments
         """
+        self.headers = {}
+        self.set_headers(opts.get('headers', {}))
         self.to = []
         self.to_name = []
         self.cc = []
@@ -46,8 +48,6 @@ class Mail(object):
         self.reply_to = ''
         self.set_replyto(opts.get('reply_to', ''))
         self.files = opts.get('files', {})
-        self.headers = {}
-        self.set_headers(opts.get('headers', {}))
         self.date = opts.get('date', rfc822.formatdate())
         self.content = opts.get('content', {})
         self.smtpapi = opts.get('smtpapi', SMTPAPIHeader())
